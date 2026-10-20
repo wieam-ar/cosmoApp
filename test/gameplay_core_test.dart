@@ -4,6 +4,7 @@ import 'package:bubble_it/game/components/bubble_component.dart';
 import 'package:bubble_it/game/grid.dart';
 import 'package:bubble_it/game/cosmo_game.dart';
 import 'package:bubble_it/game/logic/matcher.dart';
+import 'package:bubble_it/game/logic/powerups.dart';
 import 'package:bubble_it/game/logic/specials.dart';
 import 'package:bubble_it/screens/game_screen.dart';
 import 'package:bubble_it/screens/catalog_screen.dart';
@@ -24,8 +25,11 @@ void main() {
         expect(data.cols, gridColsBySize(size));
         expect(data.pattern, hasLength(data.rows));
         expect(data.boss, n % 10 == 0);
-        expect(data.bossEncounter != null, n == 10);
-        expect(data.goal.type, n == 10 ? GoalType.boss : isNot(GoalType.boss));
+        expect(data.bossEncounter != null, data.boss);
+        expect(
+          data.goal.type,
+          data.boss ? GoalType.boss : isNot(GoalType.boss),
+        );
       }
     }
   });
@@ -46,6 +50,23 @@ void main() {
     expect(gridColsBySize('M'), 8);
     expect(gridColsBySize('L'), 7);
   });
+
+  test(
+    'power-up purchase spends coins and grants inventory together',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      await SaveService.I.load();
+
+      expect(PowerupLogic.purchase('bomb'), isTrue);
+      expect(SaveService.I.coins, 25);
+      expect(SaveService.I.powerups['bomb'], 1);
+
+      expect(PowerupLogic.purchase('bomb'), isFalse);
+      expect(PowerupLogic.purchase('unknown'), isFalse);
+      expect(SaveService.I.coins, 25);
+      expect(SaveService.I.powerups['bomb'], 1);
+    },
+  );
 
   test(
     'hex grid reports adjacent cells and drops ceiling orphans after a match',

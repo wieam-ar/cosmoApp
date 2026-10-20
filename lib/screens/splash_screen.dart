@@ -14,6 +14,7 @@ import '../core/constants.dart';
 import '../core/haptics.dart';
 import '../core/transitions.dart';
 
+// Also exports kLogoAsset / kCatAsset (defined in menu_screen.dart).
 import 'menu_screen.dart';
 
 /// Pre-calculated deterministic physics bubble data.
@@ -60,23 +61,37 @@ class _SplashScreenState extends State<SplashScreen>
   bool _ufoInWhooshPlayed = false;
   bool _ufoOutWhooshPlayed = false;
 
+  // Set to true only if the PNG fails to load -> painter draws the old art.
+  bool _logoFailed = false;
+  bool _catFailed = false;
+  bool _precached = false;
+
   @override
   void initState() {
     super.initState();
 
-    // Start ambient background music loop
     Music.start();
-
-    // Pre-generate 25 deterministic bubbles
     _generateDeterministicBubbles();
 
-    // 4.5-second master timeline clock
     _timelineController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 4500),
     )..addListener(_onTimelineUpdate);
 
     _timelineController.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precached) return;
+    _precached = true;
+    precacheImage(const AssetImage(kLogoAsset), context).catchError((_) {
+      if (mounted) setState(() => _logoFailed = true);
+    });
+    precacheImage(const AssetImage(kCatAsset), context).catchError((_) {
+      if (mounted) setState(() => _catFailed = true);
+    });
   }
 
   void _generateDeterministicBubbles() {
@@ -111,7 +126,6 @@ class _SplashScreenState extends State<SplashScreen>
   void _onTimelineUpdate() {
     final t = _timelineController.value * 4.5;
 
-    // Trigger Timeline Sound Effects
     if (t >= 0.4 && !_rumblePlayed) {
       _rumblePlayed = true;
       Sfx.play(SfxName.thud);
@@ -126,7 +140,6 @@ class _SplashScreenState extends State<SplashScreen>
       Sfx.play(SfxName.boom);
     }
 
-    // Auto navigate when timeline completes
     if (_timelineController.isCompleted && !_navigated) {
       _navigateToMenu(Offset.zero);
     }
@@ -157,6 +170,71 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
+  // ---- logo + cat overlay (images) ---------------------------------------
+
+  Widget _imageOverlay(BuildContext context, double t) {
+    if (t < 3.4) return const SizedBox.shrink();
+
+    final p = ((t - 3.4) / 0.6).clamp(0.0, 1.0);
+    final ease = Curves.easeOutBack.transform(p);
+    final w = MediaQuery.of(context).size.width;
+    final logoW = min(w * 0.86, 360.0);
+    final catD = min(w * 0.42, 170.0);
+
+    Widget logo = const SizedBox.shrink();
+    if (!_logoFailed) {
+      logo = Align(
+        alignment: const Alignment(0, -0.2),
+        child: Opacity(
+          opacity: p,
+          child: Transform.translate(
+            offset: Offset(0, (1.0 - ease) * -40.0),
+            child: Transform.scale(
+              scale: 0.7 + 0.3 * ease,
+              child: SizedBox(
+                width: logoW,
+                child: Image.asset(
+                  kLogoAsset,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget cat = const SizedBox.shrink();
+    if (!_catFailed) {
+      cat = Align(
+        alignment: const Alignment(0, -0.64),
+        child: Opacity(
+          opacity: p,
+          child: Transform.translate(
+            offset: Offset(0, (1.0 - ease) * 30.0 + sin(t * 3.0) * 4.0),
+            child: Transform.scale(
+              scale: 0.6 + 0.4 * ease,
+              child: SizedBox.square(
+                dimension: catD,
+                child: Image.asset(
+                  kCatAsset,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Cat first (behind), logo on top.
+    return IgnorePointer(child: Stack(children: [cat, logo]));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,11 +246,22 @@ class _SplashScreenState extends State<SplashScreen>
           animation: _timelineController,
           builder: (context, _) {
             final t = _timelineController.value * 4.5;
-            return RepaintBoundary(
-              child: CustomPaint(
-                painter: _SplashCinematicPainter(t: t, bubbles: _bubbles),
-                child: const SizedBox.expand(),
-              ),
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _SplashCinematicPainter(
+                      t: t,
+                      bubbles: _bubbles,
+                      legacyTitle: _logoFailed,
+                      legacyMimo: _catFailed,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+                _imageOverlay(context, t),
+              ],
             );
           },
         ),
@@ -185,12 +274,18 @@ class _SplashScreenState extends State<SplashScreen>
 class _SplashCinematicPainter extends CustomPainter {
   final double t; // Master timeline seconds (0.0 .. 4.5)
   final List<_SplashBubble> bubbles;
+  final bool legacyTitle; // draw old painted title if logo PNG is missing
+  final bool legacyMimo; // draw old painted Mimo if cat PNG is missing
 
-  _SplashCinematicPainter({required this.t, required this.bubbles});
+  _SplashCinematicPainter({
+    required this.t,
+    required this.bubbles,
+    this.legacyTitle = false,
+    this.legacyMimo = false,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Subtle Camera Zoom Scale (1.0 -> 1.05) over 4.5s
     final cameraScale = 1.0 + (t / 4.5) * 0.05;
 
     canvas.save();
@@ -198,7 +293,6 @@ class _SplashCinematicPainter extends CustomPainter {
     canvas.scale(cameraScale);
     canvas.translate(-size.width / 2, -size.height / 2);
 
-    // 0.0s..0.4s: Fade in Space Background
     final bgAlpha = (t / 0.4).clamp(0.0, 1.0);
     if (bgAlpha < 0.99) {
       canvas.saveLayer(
@@ -220,9 +314,7 @@ class _SplashCinematicPainter extends CustomPainter {
     SpacePainter.shootingStar(canvas, size, t: t);
 
     // 2. 0.4s..1.8s: Rising Lava Planet Surface
-    final riseProgress = (t < 0.4)
-        ? 0.0
-        : ((t - 0.4) / 1.4).clamp(0.0, 1.0); // easeOutCubic
+    final riseProgress = (t < 0.4) ? 0.0 : ((t - 0.4) / 1.4).clamp(0.0, 1.0);
     final cubicRise = 1.0 - pow(1.0 - riseProgress, 3).toDouble();
     final lavaHeightFactor = 0.24 * cubicRise;
 
@@ -235,23 +327,23 @@ class _SplashCinematicPainter extends CustomPainter {
       );
     }
 
-    // 3. UFO Bezier Movement & Beam
+    // 3. UFO
     _drawUfo(canvas, size);
 
-    // 4. Deterministic Physics Simulation & Bubble Pile Rendering
+    // 4. Physics + bubbles
     _stepAndDrawBubbles(canvas, size);
 
-    // 5. 3.2s: Shockwave Ring & Sparkle Burst
+    // 5. Shockwave
     if (t >= 3.2) {
       _drawShockwave(canvas, size);
     }
 
-    // 6. 3.4s: "COSMO POP" Title & Mimo Peeking
-    if (t >= 3.4) {
+    // 6. Legacy title / Mimo (only if the PNGs are missing)
+    if (t >= 3.4 && (legacyTitle || legacyMimo)) {
       _drawTitleAndMimo(canvas, size);
     }
 
-    // 7. 4.0s: Loading Progress Bar
+    // 7. Loading bar
     if (t >= 4.0) {
       _drawLoadingBar(canvas, size);
     }
@@ -267,10 +359,8 @@ class _SplashCinematicPainter extends CustomPainter {
     double beamLength = 0.0;
 
     if (t < 1.2) {
-      // Offscreen
       return;
     } else if (t >= 1.2 && t < 1.8) {
-      // Fly in Bezier
       final prog = (t - 1.2) / 0.6;
       final start = Offset(size.width + 80, -60);
       final control = Offset(size.width * 0.8, size.height * 0.1);
@@ -281,11 +371,9 @@ class _SplashCinematicPainter extends CustomPainter {
       ufoPos = Offset.lerp(p0, p1, prog)!;
       beamLength = prog * 0.85;
     } else if (t >= 1.8 && t < 3.2) {
-      // Hovering
       ufoPos = Offset(size.width * 0.5, size.height * 0.22);
       beamLength = 0.85;
     } else {
-      // 3.2s+: Fly away
       final prog = ((t - 3.2) / 0.6).clamp(0.0, 1.0);
       final start = Offset(size.width * 0.5, size.height * 0.22);
       final end = Offset(-100, size.height * 0.15);
@@ -303,11 +391,9 @@ class _SplashCinematicPainter extends CustomPainter {
     final ufoX = size.width * 0.5;
     final ufoY = size.height * 0.22 + 20;
 
-    // Sub-step deterministic physics integration
     const dt = 1 / 60.0;
     final totalSteps = ((min(t, 4.5) - 1.8) / dt).floor();
 
-    // Reset bubble positions for step-by-step integration
     for (final b in bubbles) {
       b.landed = false;
       b.x = ufoX + b.spawnXOffset;
@@ -325,32 +411,27 @@ class _SplashCinematicPainter extends CustomPainter {
         final b = bubbles[i];
         if (simTime < b.spawnTime) continue;
 
-        // Apply gravity
         b.vy += 550.0 * dt;
         b.x += b.vx * dt;
         b.y += b.vy * dt;
 
-        // Collision with curved terrain
         final relX = (b.x / size.width).clamp(0.0, 1.0);
         final terrainY = topY + sin(relX * pi * 2) * 8.0 + 15.0;
 
         if (b.y + b.radius >= terrainY) {
           b.y = terrainY - b.radius;
-          b.vy = -b.vy * 0.3; // bounce damping
-          b.vx *= 0.75; // friction
+          b.vy = -b.vy * 0.3;
+          b.vx *= 0.75;
           b.squashX = 1.2;
           b.squashY = 0.8;
           b.landed = true;
 
-          // Roll toward center crater curve
           b.vx += (size.width * 0.5 - b.x) * 0.5 * dt;
         }
 
-        // Recover squash
         b.squashX += (1.0 - b.squashX) * 8.0 * dt;
         b.squashY += (1.0 - b.squashY) * 8.0 * dt;
 
-        // Circle-circle collisions
         for (int j = i + 1; j < bubbles.length; j++) {
           final b2 = bubbles[j];
           if (simTime < b2.spawnTime) continue;
@@ -374,18 +455,15 @@ class _SplashCinematicPainter extends CustomPainter {
       }
     }
 
-    // 3.2s Shockwave pulse on pile
     double pulseGlow = 0.0;
     if (t >= 3.2 && t <= 3.6) {
       final pulseT = (t - 3.2) / 0.4;
       pulseGlow = sin(pulseT * pi);
     }
 
-    // Render active bubbles
     for (final b in bubbles) {
       if (t < b.spawnTime) continue;
 
-      // Gentle idle wobble after landing
       final idleWobble = b.landed ? sin(t * 3.0 + b.id) * 0.04 : 0.0;
 
       BubblePainter.draw(
@@ -414,21 +492,24 @@ class _SplashCinematicPainter extends CustomPainter {
     canvas.drawCircle(center, radius, shockPaint);
   }
 
+  /// Fallback art, used only when logo/cat PNGs fail to load.
   void _drawTitleAndMimo(Canvas canvas, Size size) {
     final titleProgress = ((t - 3.4) / 0.6).clamp(0.0, 1.0);
     final titleCenter = Offset(size.width * 0.5, size.height * 0.38);
 
-    // Mimo Peeking behind Title
-    final mimoPeekY = titleCenter.dy - 35.0 + (1.0 - titleProgress) * 30.0;
-    MimoPainter.draw(
-      canvas,
-      Offset(size.width * 0.5, mimoPeekY),
-      65,
-      state: MimoState.wave,
-      t: t,
-    );
+    if (legacyMimo) {
+      final mimoPeekY = titleCenter.dy - 35.0 + (1.0 - titleProgress) * 30.0;
+      MimoPainter.draw(
+        canvas,
+        Offset(size.width * 0.5, mimoPeekY),
+        65,
+        state: MimoState.wave,
+        t: t,
+      );
+    }
 
-    // Letter-by-letter Drop Intro
+    if (!legacyTitle) return;
+
     const text = "COSMO POP";
     final anims = <LetterAnim>[];
 
@@ -458,7 +539,6 @@ class _SplashCinematicPainter extends CustomPainter {
       sweep: true,
     );
 
-    // Subtitle "MEOW GALAXY"
     if (t >= 3.7) {
       final subProg = ((t - 3.7) / 0.3).clamp(0.0, 1.0);
       final subScale = 0.5 + 0.5 * sin(subProg * pi / 2);
@@ -473,8 +553,6 @@ class _SplashCinematicPainter extends CustomPainter {
     }
   }
 
-  /// Draws outlined text centered on the current origin. (The old call to
-  /// `outlinedText` returned a widget and never painted anything.)
   void _drawOutlinedCentered(
     Canvas canvas,
     String text,
@@ -518,10 +596,8 @@ class _SplashCinematicPainter extends CustomPainter {
       height: 24,
     );
 
-    // Track
     JellyPainter.button(canvas, barRect, color: JellyColor.purple);
 
-    // Fill
     final fillRect = Rect.fromLTWH(
       barRect.left + 2,
       barRect.top + 2,
@@ -538,14 +614,12 @@ class _SplashCinematicPainter extends CustomPainter {
       );
     }
 
-    // Sparkle at fill tip
     if (barProg > 0.05 && barProg < 0.98) {
       final tipX = fillRect.right;
       final sparkPaint = Paint()..color = AppColors.starYellow;
       canvas.drawCircle(Offset(tipX, barRect.center.dy), 4.0, sparkPaint);
     }
 
-    // Text Label below
     TextPainter(
         text: const TextSpan(
           text: "Preparing galaxy...",
@@ -563,6 +637,8 @@ class _SplashCinematicPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SplashCinematicPainter old) {
-    return old.t != t;
+    return old.t != t ||
+        old.legacyTitle != legacyTitle ||
+        old.legacyMimo != legacyMimo;
   }
 }

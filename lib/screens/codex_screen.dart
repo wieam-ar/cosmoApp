@@ -13,6 +13,7 @@ import '../game/logic/elemental_codex.dart';
 import '../game/logic/elemental_reaction.dart';
 import '../widgets/glass_ui.dart';
 import '../widgets/jelly_button.dart';
+import '../widgets/space_background.dart';
 
 enum _CodexFilter { all, reactions, combinations }
 
@@ -30,125 +31,130 @@ class _CodexScreenState extends State<CodexScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: ListenableBuilder(
-          listenable: SaveService.I,
-          builder: (context, _) {
-            final discovered = SaveService.I.discoveredReactions;
-            final claimed = SaveService.I.claimedCodexRewards;
-            final progress = ElementalCodexRegistry.progress(discovered);
-            final pendingRewards = discovered.difference(claimed).length;
-            final entries = ElementalCodexRegistry.entries
-                .where((entry) {
-                  return switch (_filter) {
-                    _CodexFilter.all => true,
-                    _CodexFilter.reactions =>
-                      entry.category == CodexCategory.reactions,
-                    _CodexFilter.combinations =>
-                      entry.category == CodexCategory.combinations,
-                  };
-                })
-                .toList(growable: false);
+      body: SpaceBackground(
+        showUfos: false,
+        showLava: false,
+        animated: false,
+        child: SafeArea(
+          child: ListenableBuilder(
+            listenable: SaveService.I,
+            builder: (context, _) {
+              final discovered = SaveService.I.discoveredReactions;
+              final claimed = SaveService.I.claimedCodexRewards;
+              final progress = ElementalCodexRegistry.progress(discovered);
+              final pendingRewards = discovered.difference(claimed).length;
+              final entries = ElementalCodexRegistry.entries
+                  .where((entry) {
+                    return switch (_filter) {
+                      _CodexFilter.all => true,
+                      _CodexFilter.reactions =>
+                        entry.category == CodexCategory.reactions,
+                      _CodexFilter.combinations =>
+                        entry.category == CodexCategory.combinations,
+                    };
+                  })
+                  .toList(growable: false);
 
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
-                    child: Row(
-                      children: [
-                        RoundButton(
-                          icon: AppIcon.back,
-                          color: JellyColor.purple,
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'ELEMENTAL CODEX',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.title(
-                              fontSize: 21,
-                              color: AppColors.accent,
+              return CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+                      child: Row(
+                        children: [
+                          RoundButton(
+                            icon: AppIcon.back,
+                            color: JellyColor.purple,
+                            onPressed: () => Navigator.of(context).maybePop(),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'ELEMENTAL CODEX',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.title(
+                                fontSize: 21,
+                                color: AppColors.accent,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        GlassPill(
-                          text: '${progress.discovered}/${progress.total}',
-                          color: AppColors.candyGreen,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
-                    child: _ProgressPanel(
-                      progress: progress,
-                      pendingRewards: pendingRewards,
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 38,
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      scrollDirection: Axis.horizontal,
-                      children: const [
-                        _ElementBadge(type: ElementalType.fire),
-                        _ElementBadge(type: ElementalType.water),
-                        _ElementBadge(type: ElementalType.earth),
-                        _ElementBadge(type: ElementalType.flora),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-                    child: _Segmented(
-                      labels: const ['All', 'Reactions', 'Combinations'],
-                      index: _filter.index,
-                      onChanged: (i) =>
-                          setState(() => _filter = _CodexFilter.values[i]),
-                    ),
-                  ),
-                ),
-                if (entries.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Text(
-                        'No records in this chapter yet.',
-                        style: AppTextStyles.body(),
+                          const SizedBox(width: 8),
+                          GlassPill(
+                            text: '${progress.discovered}/${progress.total}',
+                            color: AppColors.candyGreen,
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
-                    sliver: SliverList.separated(
-                      itemCount: entries.length,
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        return _CodexCard(
-                          key: ValueKey(entry.id),
-                          entry: entry,
-                          discovered: discovered.contains(entry.id),
-                          claimed: claimed.contains(entry.id),
-                        );
-                      },
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 10),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 2, 14, 12),
+                      child: _ProgressPanel(
+                        progress: progress,
+                        pendingRewards: pendingRewards,
+                      ),
                     ),
                   ),
-              ],
-            );
-          },
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 38,
+                      child: ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        scrollDirection: Axis.horizontal,
+                        children: const [
+                          _ElementBadge(type: ElementalType.fire),
+                          _ElementBadge(type: ElementalType.water),
+                          _ElementBadge(type: ElementalType.earth),
+                          _ElementBadge(type: ElementalType.flora),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                      child: _Segmented(
+                        labels: const ['All', 'Reactions', 'Combinations'],
+                        index: _filter.index,
+                        onChanged: (i) =>
+                            setState(() => _filter = _CodexFilter.values[i]),
+                      ),
+                    ),
+                  ),
+                  if (entries.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Text(
+                          'No records in this chapter yet.',
+                          style: AppTextStyles.body(),
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
+                      sliver: SliverList.separated(
+                        itemCount: entries.length,
+                        itemBuilder: (context, index) {
+                          final entry = entries[index];
+                          return _CodexCard(
+                            key: ValueKey(entry.id),
+                            entry: entry,
+                            discovered: discovered.contains(entry.id),
+                            claimed: claimed.contains(entry.id),
+                          );
+                        },
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 10),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

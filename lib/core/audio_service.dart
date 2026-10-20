@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -412,7 +411,7 @@ class Sfx {
     if (_initialized) return;
 
     try {
-      _cache.addAll(await Isolate.run(_generateSfxCache));
+      _cache.addAll(await compute(_generateSfxCache, null));
 
       // Initialize player pool (8 instances for low-latency concurrency)
       for (int i = 0; i < 8; i++) {
@@ -462,7 +461,7 @@ class Sfx {
   }
 }
 
-Map<SfxName, Uint8List> _generateSfxCache() => {
+Map<SfxName, Uint8List> _generateSfxCache(Object? _) => {
   for (final name in SfxName.values)
     name: createWavHeader(SoundSynth.generateSfx(name)),
 };
@@ -475,13 +474,27 @@ class Music {
   static AudioPlayer? _player;
   static Uint8List? _musicBytes;
   static bool _isPlaying = false;
+  static Future<void>? _startFuture;
 
   /// Starts the synthesized 16-second ambient space loop.
-  static Future<void> start() async {
-    if (!SaveService.I.musicEnabled) return;
+  static Future<void> start() {
+    if (!SaveService.I.musicEnabled || _isPlaying) {
+      return Future<void>.value();
+    }
+    final pending = _startFuture;
+    if (pending != null) return pending;
 
+    final starting = _start();
+    _startFuture = starting;
+    return starting.whenComplete(() {
+      if (identical(_startFuture, starting)) _startFuture = null;
+    });
+  }
+
+  static Future<void> _start() async {
     try {
-      _musicBytes ??= createWavHeader(SoundSynth.generateAmbientMusicLoop());
+      _musicBytes ??= await compute(_generateMusicLoop, null);
+      if (!SaveService.I.musicEnabled || _isPlaying) return;
 
       if (_player == null) {
         _player = AudioPlayer();
@@ -553,3 +566,6 @@ class Music {
     }
   }
 }
+
+Uint8List _generateMusicLoop(Object? _) =>
+    createWavHeader(SoundSynth.generateAmbientMusicLoop());

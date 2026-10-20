@@ -305,6 +305,28 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
             child: Stack(
               alignment: Alignment.center,
               children: [
+                Positioned(
+                  bottom: 4,
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..rotateX(-0.15)
+                      ..rotateZ(sin(_preview.value * pi * 2) * 0.08),
+                    child: Container(
+                      width: 140,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFB7A4FF), Color(0xFF5843B6)],
+                        ),
+                        borderRadius: BorderRadius.circular(50),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black54, blurRadius: 10),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 Transform(
                   alignment: Alignment.center,
                   transform: Matrix4.identity()
@@ -315,28 +337,6 @@ class _ShopScreenState extends State<ShopScreen> with TickerProviderStateMixin {
                     painter: _SkinPreviewPainter(
                       skin: _skinPainter(SaveService.I.skin),
                       time: _preview.value * 2 * pi,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 17,
-                  child: Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..rotateX(-0.15)
-                      ..rotateZ(_preview.value * pi * 2),
-                    child: Container(
-                      width: 150,
-                      height: 25,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFB7A4FF), Color(0xFF5843B6)],
-                        ),
-                        borderRadius: BorderRadius.circular(50),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black54, blurRadius: 10),
-                        ],
-                      ),
                     ),
                   ),
                 ),
@@ -553,9 +553,9 @@ class _ShopCardState extends State<_ShopCard>
                       // FIX: no overflow on long text
                       Text(
                         widget.title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.label(fontSize: 13),
+                        style: AppTextStyles.label(fontSize: 12),
                       ),
                       Text(
                         widget.subtitle,

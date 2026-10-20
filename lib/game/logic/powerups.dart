@@ -72,8 +72,6 @@ class PowerupLogic {
 
   static bool purchase(String id) {
     final item = definition(id);
-    if (item == null || !SaveService.I.deductCoins(item.price)) return false;
-    SaveService.I.addPowerups(id, 1);
-    return true;
+    return item != null && SaveService.I.purchasePowerup(id, item.price);
   }
 }

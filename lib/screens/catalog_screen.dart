@@ -12,6 +12,7 @@ import '../core/theme.dart' hide GlassPanel;
 import '../widgets/glass_ui.dart';
 import '../widgets/jelly_button.dart';
 import '../widgets/popup.dart';
+import '../widgets/space_background.dart';
 import 'codex_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -229,140 +230,148 @@ class _CatalogScreenState extends State<CatalogScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: ListenableBuilder(
-          listenable: SaveService.I,
-          builder: (context, _) {
-            final owned = SaveService.I.cats.toSet();
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
-                  child: Row(
-                    children: [
-                      RoundButton(
-                        icon: AppIcon.back,
-                        color: JellyColor.purple,
-                        onPressed: () => Navigator.of(context).maybePop(),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'CAT-ALOG',
-                          style: AppTextStyles.title(
-                            fontSize: 22,
-                            color: AppColors.accent,
-                          ),
+      body: SpaceBackground(
+        showUfos: false,
+        showLava: false,
+        animated: false,
+        child: SafeArea(
+          child: ListenableBuilder(
+            listenable: SaveService.I,
+            builder: (context, _) {
+              final owned = SaveService.I.cats.toSet();
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        RoundButton(
+                          icon: AppIcon.back,
+                          color: JellyColor.purple,
+                          onPressed: () => Navigator.of(context).maybePop(),
                         ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CodexScreen(),
-                          ),
-                        ),
-                        child: Tooltip(
-                          message: 'Elemental Codex',
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: Glass.surface(
-                              radius: 20,
-                              tint: AppColors.coinGold,
-                            ),
-                            child: const Icon(
-                              Icons.menu_book_rounded,
-                              color: AppColors.coinGold,
-                              size: 21,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GlassPill(
-                        text: '${owned.length}/${CatRegistry.all.length}',
-                        color: AppColors.candyGreen,
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 2, 14, 10),
-                  child: Row(
-                    children: [
-                      for (final milestone in const [5, 10, 20])
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: _MilestoneCard(
-                              milestone: milestone,
-                              unlockedCount: owned.length,
+                          child: Text(
+                            'CAT-ALOG',
+                            style: AppTextStyles.title(
+                              fontSize: 22,
+                              color: AppColors.accent,
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: owned.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.pets_rounded,
-                                color: AppColors.candyPurpleLight,
-                                size: 52,
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Your crew is waiting',
-                                style: AppTextStyles.label(
-                                  fontSize: 16,
-                                  color: AppColors.accent,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Rescue kittens during levels to meet them.',
-                                style: AppTextStyles.body(fontSize: 13),
-                              ),
-                            ],
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const CodexScreen(),
+                            ),
                           ),
-                        )
-                      : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(14, 2, 14, 20),
-                          itemCount: CatRegistry.all.length,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                                childAspectRatio: 0.84,
+                          child: Tooltip(
+                            message: 'Elemental Codex',
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: Glass.surface(
+                                radius: 20,
+                                tint: AppColors.coinGold,
                               ),
-                          itemBuilder: (context, index) {
-                            final isOwned = owned.contains(index);
-                            final cat = CatRegistry.getById(index);
-                            final rarity = _Rarity(
-                              cat.rarity.label,
-                              cat.rarity.color,
-                              cat.rarity.index,
-                            );
-                            return _KittenTile(
-                              id: index,
-                              owned: isOwned,
-                              active:
-                                  isOwned && SaveService.I.activeCatId == index,
-                              rarity: rarity,
-                              shimmer: _shimmer,
-                              onTap: () => _showCat(index, isOwned),
-                            );
-                          },
+                              child: const Icon(
+                                Icons.menu_book_rounded,
+                                color: AppColors.coinGold,
+                                size: 21,
+                              ),
+                            ),
+                          ),
                         ),
-                ),
-              ],
-            );
-          },
+                        const SizedBox(width: 8),
+                        GlassPill(
+                          text: '${owned.length}/${CatRegistry.all.length}',
+                          color: AppColors.candyGreen,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 2, 14, 10),
+                    child: Row(
+                      children: [
+                        for (final milestone in const [5, 10, 20])
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 3,
+                              ),
+                              child: _MilestoneCard(
+                                milestone: milestone,
+                                unlockedCount: owned.length,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: owned.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.pets_rounded,
+                                  color: AppColors.candyPurpleLight,
+                                  size: 52,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Your crew is waiting',
+                                  style: AppTextStyles.label(
+                                    fontSize: 16,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Rescue kittens during levels to meet them.',
+                                  style: AppTextStyles.body(fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          )
+                        : GridView.builder(
+                            padding: const EdgeInsets.fromLTRB(14, 2, 14, 20),
+                            itemCount: CatRegistry.all.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                  childAspectRatio: 0.84,
+                                ),
+                            itemBuilder: (context, index) {
+                              final isOwned = owned.contains(index);
+                              final cat = CatRegistry.getById(index);
+                              final rarity = _Rarity(
+                                cat.rarity.label,
+                                cat.rarity.color,
+                                cat.rarity.index,
+                              );
+                              return _KittenTile(
+                                id: index,
+                                owned: isOwned,
+                                active:
+                                    isOwned &&
+                                    SaveService.I.activeCatId == index,
+                                rarity: rarity,
+                                shimmer: _shimmer,
+                                onTap: () => _showCat(index, isOwned),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

@@ -1024,6 +1024,19 @@ class SaveService extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool purchasePowerup(String powerup, int price) {
+    final counts = powerups;
+    if (price <= 0 || !counts.containsKey(powerup) || coins < price) {
+      return false;
+    }
+    _data['coins'] = coins - price;
+    counts[powerup] = counts[powerup]! + 1;
+    _data['powerups'] = counts;
+    _save();
+    notifyListeners();
+    return true;
+  }
+
   // ============================================================================
   // SKINS & COSMETICS
   // ============================================================================

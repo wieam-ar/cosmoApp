@@ -97,6 +97,8 @@ class SpacePainter {
     double parallaxX = 0.0,
     double parallaxY = 0.0,
   }) {
+    if (size.width <= 0 || size.height <= 0) return;
+
     for (final s in _stars) {
       final pFactor = (s.layer + 1) * 15.0;
       final x = (s.xRatio * size.width + parallaxX * pFactor) % size.width;

@@ -14,6 +14,7 @@ class SpaceBackground extends StatefulWidget {
   final SpaceBgVariant variant;
   final bool showUfos;
   final bool showLava;
+  final bool animated;
   final ValueListenable<double>? scrollOffset;
   final Widget? child;
 
@@ -22,6 +23,7 @@ class SpaceBackground extends StatefulWidget {
     this.variant = SpaceBgVariant.menu,
     this.showUfos = true,
     this.showLava = true,
+    this.animated = true,
     this.scrollOffset,
     this.child,
   });
@@ -32,14 +34,22 @@ class SpaceBackground extends StatefulWidget {
 
 class _SpaceBackgroundState extends State<SpaceBackground>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _anim = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 60),
-  )..repeat();
+  AnimationController? _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.animated) {
+      _anim = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 60),
+      )..repeat();
+    }
+  }
 
   @override
   void dispose() {
-    _anim.dispose();
+    _anim?.dispose();
     super.dispose();
   }
 
@@ -51,7 +61,7 @@ class _SpaceBackgroundState extends State<SpaceBackground>
           child: RepaintBoundary(
             child: AnimatedBuilder(
               animation: Listenable.merge([
-                _anim,
+                ?_anim,
                 if (widget.scrollOffset != null) widget.scrollOffset!,
               ]),
               builder: (_, _) => CustomPaint(
@@ -59,7 +69,7 @@ class _SpaceBackgroundState extends State<SpaceBackground>
                   variant: widget.variant,
                   showUfos: widget.showUfos,
                   showLava: widget.showLava,
-                  t: _anim.value * 60,
+                  t: (_anim?.value ?? 0) * 60,
                   scrollY: widget.scrollOffset?.value ?? 0,
                 ),
               ),

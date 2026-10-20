@@ -218,7 +218,7 @@ LevelData _buildLevel(int n, String bubbleSize, {int difficultyLevel = 1}) {
   };
 
   final baseScore = 1000 + n * 240;
-  final bossEncounter = n == 10 ? kVoidKingEncounter : null;
+  final bossEncounter = boss ? kVoidKingEncounter : null;
   return LevelData(
     n: n,
     rows: rows,

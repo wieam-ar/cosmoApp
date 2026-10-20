@@ -26,13 +26,17 @@ import 'codex_screen.dart';
 import 'daily_reward_screen.dart';
 import 'game_screen.dart';
 import 'level_map_screen.dart';
+import 'missions_screen.dart';
 import 'settings_screen.dart';
 import 'shop_screen.dart';
-import 'spin_screen.dart';
 
 const int _kEventGoal = 20;
 
-/// Main menu: level chip + coins on top, title, Mimo with four orbs,
+// ---- ASSETS (beddel smiyat ila khassk) ------------------------------------
+const String kLogoAsset = 'assets/images/menu/logo_cosmo.png';
+const String kCatAsset = 'assets/images/menu/mimo_saucer.png';
+
+/// Main menu: level chip + coins on top, logo image, cat image with four orbs,
 /// a wide PLAY button, the event banner and the bottom dock.
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -51,7 +55,8 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
   late final CurvedAnimation _dockIn;
 
   final GlobalKey _playKey = GlobalKey();
-  MimoState _mimo = MimoState.idle;
+  MimoState _mimo = MimoState.idle; // used only by the fallback painter
+  bool _catBounce = false;
   Timer? _mimoReset;
   DateTime? _lastBack;
 
@@ -95,10 +100,18 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
   // ---- actions -----------------------------------------------------------
 
   void _reactMimo(MimoState state, {int ms = 900}) {
-    setState(() => _mimo = state);
+    setState(() {
+      _mimo = state;
+      _catBounce = true;
+    });
     _mimoReset?.cancel();
     _mimoReset = Timer(Duration(milliseconds: ms), () {
-      if (mounted) setState(() => _mimo = MimoState.idle);
+      if (mounted) {
+        setState(() {
+          _mimo = MimoState.idle;
+          _catBounce = false;
+        });
+      }
     });
   }
 
@@ -130,7 +143,7 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
   void _petMimo() {
     AppHaptics.light();
     Sfx.play(SfxName.pop);
-    _reactMimo(MimoState.happy);
+    _reactMimo(MimoState.happy, ms: 350);
   }
 
   void _onPop(bool didPop, dynamic result) {
@@ -189,7 +202,7 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
     return Column(
       children: [
         _topBar(),
-        _rise(_titleIn, const Offset(0, -60), const GameTitle()),
+        _rise(_titleIn, const Offset(0, -60), _logo()),
         Expanded(child: _heroWithOrbs(skin)),
         const SizedBox(height: 6),
         _rise(
@@ -215,6 +228,21 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
         ),
       );
 
+  // ---- logo --------------------------------------------------------------
+
+  Widget _logo() {
+    final w = min(MediaQuery.of(context).size.width * 0.86, 360.0);
+    return SizedBox(
+      width: w,
+      child: Image.asset(
+        kLogoAsset,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, _, _) => const GameTitle(),
+      ),
+    );
+  }
+
   // ---- top bar -----------------------------------------------------------
 
   Widget _topBar() => Padding(
@@ -223,7 +251,7 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
       children: [
         _levelChip(),
         const Spacer(),
-        _resourcePill(),
+        _coinPill(),
         const SizedBox(width: 8),
         RoundButton(
           icon: AppIcon.gear,
@@ -235,12 +263,12 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
     ),
   );
 
-  Widget _resourcePill() => TickBuilder(
+  Widget _coinPill() => TickBuilder(
     every: const Duration(minutes: 1),
     builder: (_) => CosmoTap(
       onTap: () => _go(const ShopScreen()),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(10, 5, 5, 5),
         decoration: BoxDecoration(
           gradient: kCardGradientGlass,
           borderRadius: BorderRadius.circular(20),
@@ -250,25 +278,32 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
-              Icons.favorite_rounded,
-              size: 15,
-              color: AppColors.heartRed,
-            ),
-            const SizedBox(width: 3),
-            Text(
-              '${SaveService.I.hearts}',
-              style: AppTextStyles.label(fontSize: 12, color: Colors.white),
-            ),
-            const SizedBox(width: 7),
-            const Icon(
               Icons.monetization_on_rounded,
-              size: 15,
+              size: 20,
               color: AppColors.coinGold,
             ),
-            const SizedBox(width: 3),
+            const SizedBox(width: 5),
             Text(
               '${SaveService.I.coins}',
-              style: AppTextStyles.label(fontSize: 12, color: Colors.white),
+              style: AppTextStyles.label(fontSize: 13, color: Colors.white),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF7DDB4A), Color(0xFF3FA32A)],
+                ),
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                size: 16,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
@@ -326,15 +361,14 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
 
   // ---- hero + orbs -------------------------------------------------------
 
-  // Mimo first, orbs painted over his lower edge.
   Widget _heroWithOrbs(SkinId skin) => LayoutBuilder(
     builder: (context, box) {
       const orbRow = 98.0;
       const overlap = 34.0;
       final d = min(
-        box.maxWidth * 0.74,
+        box.maxWidth * 0.80,
         box.maxHeight - orbRow + overlap,
-      ).clamp(100.0, 360.0).toDouble();
+      ).clamp(100.0, 380.0).toDouble();
       return Stack(
         clipBehavior: Clip.none,
         children: [
@@ -360,35 +394,45 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
                       builder: (_, _) => Transform.translate(
                         offset: Offset(
                           0,
-                          sin(_ambient.value * pi * 4) * d * 0.012,
+                          sin(_ambient.value * pi * 4) * d * 0.02,
                         ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(
-                              width: d,
-                              height: d,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [
-                                    Cosmo.furViolet.withValues(alpha: 0.28),
-                                    Colors.transparent,
-                                  ],
+                        child: AnimatedScale(
+                          scale: _catBounce ? 1.07 : 1.0,
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOutBack,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: d,
+                                height: d,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      Cosmo.furViolet.withValues(alpha: 0.28),
+                                      Colors.transparent,
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                            SizedBox.square(
-                              dimension: d,
-                              child: CustomPaint(
-                                painter: _MimoHeroPainter(
-                                  state: _mimo,
-                                  skin: skin,
-                                  t: _ambient.value * 10.0,
+                              SizedBox.square(
+                                dimension: d,
+                                child: Image.asset(
+                                  kCatAsset,
+                                  fit: BoxFit.contain,
+                                  filterQuality: FilterQuality.high,
+                                  errorBuilder: (_, _, _) => CustomPaint(
+                                    painter: _MimoHeroPainter(
+                                      state: _mimo,
+                                      skin: skin,
+                                      t: _ambient.value * 10.0,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -504,37 +548,37 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
   Widget _playButton() => CosmoTap(
     onTap: _play,
     child: Container(
-      width: 290,
-      height: 64,
+      width: 300,
+      height: 66,
       padding: const EdgeInsets.symmetric(horizontal: 22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFC23A), Color(0xFFFF8A1F)],
+          colors: [Color(0xFFFFD04A), Color(0xFFFF8A1F)],
         ),
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(33),
         border: Border.all(color: const Color(0xFFFFE08A), width: 2.5),
         boxShadow: const [
-          BoxShadow(color: Color(0x88FF8A1F), blurRadius: 18),
+          BoxShadow(color: Color(0x99FF8A1F), blurRadius: 20),
           BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 4)),
         ],
       ),
       child: Row(
         children: [
-          const Icon(Icons.pets_rounded, size: 30, color: Colors.white),
+          const Icon(Icons.pets_rounded, size: 32, color: Colors.white),
           const Spacer(),
           Text(
             'PLAY',
             style: AppTextStyles.label(
-              fontSize: 30,
+              fontSize: 32,
               color: const Color(0xFF5A2D00),
             ),
           ),
           const Spacer(),
           const Icon(
             Icons.arrow_forward_rounded,
-            size: 30,
+            size: 32,
             color: Color(0xFF5A2D00),
           ),
         ],
@@ -673,10 +717,10 @@ class _MenuScreenState extends State<MenuScreen> with TickerProviderStateMixin {
           onTap: () => _go(const ShopScreen(initialTab: 2)),
         ),
         CosmoDockItem(
-          label: 'Lucky Spin',
+          label: 'Missions',
           materialIcon: Icons.star_rounded,
-          color: const Color(0xFF4CC23A),
-          onTap: () => _go(const SpinScreen()),
+          color: const Color(0xFFFFC23A),
+          onTap: () => _go(const MissionsScreen()),
         ),
       ],
     ),
@@ -696,6 +740,7 @@ class _IconPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter old) => false;
 }
 
+/// Fallback only: used if the cat PNG is missing.
 class _MimoHeroPainter extends CustomPainter {
   const _MimoHeroPainter({
     required this.state,
@@ -708,8 +753,6 @@ class _MimoHeroPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Mimo already wears the glass helmet from the logo, so he is the bubble.
-    // 0.98 / 0.52 are the two numbers to tweak if he sits too high/low.
     MimoPainter.draw(
       canvas,
       Offset(size.width / 2, size.height * 0.52),
